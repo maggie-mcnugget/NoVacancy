@@ -298,26 +298,95 @@ void ANoVacancyCharacter::Interact()
                 InteractableActor->Destroy();
             }
 
+            // Check whether this object is a regular interior door
+            else if (InteractableActor->ActorHasTag(FName("InteriorDoor")))
+            {
+                // Check whether the door is currently open
+                if (InteractableActor->ActorHasTag(FName("Opened")))
+                {
+                    // Find the CloseDoor event
+                    UFunction* CloseDoorFunction = InteractableActor->FindFunction(
+                        FName("CloseDoor")
+                    );
+
+                    if (CloseDoorFunction)
+                    {
+                        // Play the closing animation
+                        InteractableActor->ProcessEvent(
+                            CloseDoorFunction,
+                            nullptr
+                        );
+
+                        // Remove the opened tag
+                        InteractableActor->Tags.Remove(FName("Opened"));
+                    }
+                }
+                else
+                {
+                    // Find the OpenDoor event
+                    UFunction* OpenDoorFunction = InteractableActor->FindFunction(
+                        FName("OpenDoor")
+                    );
+
+                    if (OpenDoorFunction)
+                    {
+                        // Play the opening animation
+                        InteractableActor->ProcessEvent(
+                            OpenDoorFunction,
+                            nullptr
+                        );
+
+                        // Add the opened tag
+                        InteractableActor->Tags.AddUnique(FName("Opened"));
+                    }
+                }
+            }
+
             // Check whether this object is the exit door
             else if (InteractableActor->ActorHasTag(FName("ExitDoor")))
             {
                 // Check whether the player has collected all 3 keys
                 if (KeysCollected >= 3)
                 {
-                    // Clear the current interactable reference
-                    CurrentInteractableComponent = nullptr;
-
-                    // Hide the interaction prompt
-                    if (InteractPromptWidget)
+                    // Check whether the door has already been opened
+                    if (InteractableActor->ActorHasTag(FName("Opened")))
                     {
-                        InteractPromptWidget->SetVisibility(
-                            ESlateVisibility::Hidden);
+                        return;
                     }
 
-                    // Remove the exit door from the level
-                    InteractableActor->Destroy();
+                    // Find the OpenDoor event inside the door Blueprint
+                    UFunction* OpenDoorFunction = InteractableActor->FindFunction(
+                        FName("OpenDoor")
+                    );
 
-                    UE_LOG(LogTemp, Log, TEXT("Exit unlocked!"));
+                    if (OpenDoorFunction)
+                    {
+                        // Play the door opening animation
+                        InteractableActor->ProcessEvent(
+                            OpenDoorFunction,
+                            nullptr
+                        );
+
+                        // Mark the door as opened so it cannot be opened again
+                        InteractableActor->Tags.AddUnique(FName("Opened"));
+
+                        // Clear the current interactable reference
+                        CurrentInteractableComponent = nullptr;
+
+                        // Hide the interaction prompt
+                        if (InteractPromptWidget)
+                        {
+                            InteractPromptWidget->SetVisibility(
+                                ESlateVisibility::Hidden);
+                        }
+
+                        UE_LOG(LogTemp, Log, TEXT("Exit unlocked! Door opening."));
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Error,
+                            TEXT("Could not find OpenDoor event in exit door Blueprint!"));
+                    }
                 }
                 else
                 {
@@ -348,6 +417,7 @@ void ANoVacancyCharacter::Interact()
                     }
                 }
             }
+
         }
     }
 }
